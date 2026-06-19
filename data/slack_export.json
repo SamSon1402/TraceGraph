@@ -1,0 +1,11 @@
+{
+  "channel": "atlas-launch",
+  "messages": [
+    {"id": "1", "ts": "2026-03-12T09:14:00Z", "user": "Jane Okafor",
+     "text": "the Acme Robotics board approved Project Atlas \u2014 we are go", "refs": []},
+    {"id": "2", "ts": "2026-03-12T09:16:00Z", "user": "Diego Ramirez",
+     "text": "pushed the remaining auth work under ATLAS-482, can someone review before the due date?", "refs": ["ATLAS-482"]},
+    {"id": "3", "ts": "2026-03-12T09:21:00Z", "user": "Priya Nair",
+     "text": "on it. full context is in the Atlas Launch Spec", "refs": []}
+  ]
+}

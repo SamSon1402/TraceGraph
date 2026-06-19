@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tracegraph"
+version = "0.1.0"
+description = "Multimodal ingestion and trajectory reconstruction across tool exports."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Sameer M" }]
+license = { text = "MIT" }
+keywords = ["data-engineering", "ingestion", "trajectories", "rl-environments", "graph"]
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=7.4"]
+
+[project.scripts]
+tracegraph = "tracegraph.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["tracegraph*"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]

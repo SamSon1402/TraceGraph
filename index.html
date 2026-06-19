@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TraceGraph — Multimodal Ingestion & Trajectory Reconstruction · Ooak Data</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#050507; --bg-1:#0b0c0f; --bg-2:#121319; --bg-3:#1a1c24;
+  --line:rgba(255,255,255,.07); --line-2:rgba(255,255,255,.13);
+  --ink:#f4f5f7; --ink-2:#9ea3ad; --ink-3:#5f636d;
+  --accent:#8b95ff; --accent-2:#46e0c0;
+  --slack:#c98bff; --jira:#8b95ff; --notion:#46e0c0;
+  --ok:#3ecf8e; --warn:#f0b34a; --r:16px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;
+  background-image:radial-gradient(60% 50% at 100% 0%,rgba(139,149,255,.10) 0%,transparent 60%),radial-gradient(50% 50% at 0% 100%,rgba(70,224,192,.07) 0%,transparent 55%);
+  background-attachment:fixed;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1500px;margin:0 auto;padding:0 28px}
+.top{position:sticky;top:0;z-index:50;background:rgba(5,5,7,.72);backdrop-filter:blur(18px);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;align-items:center;justify-content:space-between;height:64px}
+.brand{display:flex;align-items:center;gap:12px}
+.brand b{font-weight:700;font-size:15px;letter-spacing:-.01em}
+.brand small{display:block;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-3);margin-top:2px}
+.tags{display:flex;gap:8px;flex-wrap:wrap}
+.tag{font:500 11px/1 'JetBrains Mono',monospace;color:var(--ink-2);border:1px solid var(--line-2);padding:7px 10px;border-radius:999px}
+.tag.dot::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent-2);margin-right:7px;vertical-align:middle;box-shadow:0 0 10px var(--accent-2)}
+.hero{padding:46px 0 26px}
+.eyebrow{font:600 11px/1 'JetBrains Mono',monospace;letter-spacing:.22em;text-transform:uppercase;color:var(--accent);margin-bottom:16px}
+.hero h1{font-weight:800;font-size:clamp(30px,4.4vw,52px);line-height:1.02;letter-spacing:-.025em;max-width:18ch}
+.hero h1 em{font-style:normal;color:var(--ink-3)}
+.hero p{margin-top:16px;color:var(--ink-2);font-size:16px;max-width:64ch;line-height:1.55}
+.bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:22px 0 26px;padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--bg-1)}
+.btn{font:600 13.5px/1 'Inter';display:inline-flex;align-items:center;gap:8px;padding:11px 18px;border-radius:999px;border:1px solid var(--line-2);background:transparent;color:var(--ink);cursor:pointer;transition:.18s}
+.btn:hover{border-color:var(--ink-2)}
+.btn.primary{background:var(--ink);color:#000;border-color:var(--ink)}
+.btn.primary:hover{background:#fff;transform:translateY(-1px)}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.spacer{flex:1}
+.meta{display:flex;gap:16px;font:600 13px/1 'JetBrains Mono',monospace;color:var(--ink)}
+.meta span small{display:block;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);margin-bottom:5px;font-family:'Inter';font-weight:500}
+.grid{display:grid;grid-template-columns:1fr 1.25fr;gap:20px}
+@media(max-width:1100px){.grid{grid-template-columns:1fr}}
+.card{background:var(--bg-1);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;margin-bottom:20px}
+.card-h{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--line)}
+.card-h h3{font-size:13.5px;font-weight:600}
+.card-h .where{font:500 11px/1 'JetBrains Mono',monospace;color:var(--ink-3)}
+.card-b{padding:18px}
+/* raw json */
+.raw{margin-bottom:14px}
+.raw:last-child{margin-bottom:0}
+.raw .lbl{display:flex;align-items:center;gap:8px;font:600 12px/1 'Inter';margin-bottom:8px}
+.dotc{width:9px;height:9px;border-radius:3px}
+.raw pre{background:var(--bg-2);border:1px solid var(--line);border-radius:10px;padding:12px;font:500 11px/1.6 'JetBrains Mono',monospace;color:var(--ink-2);overflow-x:auto}
+.raw pre .k{color:var(--accent)}.raw pre .s{color:var(--notion)}.raw pre .n{color:var(--warn)}
+/* graph */
+.stage{width:100%;height:auto;background:var(--bg-2);border-radius:12px;border:1px solid var(--line)}
+.gnode rect{fill:var(--bg-3);stroke:var(--line-2);stroke-width:1;transition:.3s}
+.gnode.on rect{stroke-width:2}
+.gnode.notion.on rect{stroke:var(--notion);filter:drop-shadow(0 0 8px rgba(70,224,192,.4))}
+.gnode.jira.on rect{stroke:var(--jira);filter:drop-shadow(0 0 8px rgba(139,149,255,.4))}
+.gnode.slack.on rect{stroke:var(--slack);filter:drop-shadow(0 0 8px rgba(201,139,255,.4))}
+.gnode .title{fill:var(--ink);font:600 12px 'Inter'}
+.gnode .sub{fill:var(--ink-3);font:500 10px 'JetBrains Mono'}
+.gnode.dim{opacity:.32}
+.edge{fill:none;stroke:var(--line-2);stroke-width:1.5;stroke-dasharray:5 5;opacity:.5;transition:.4s}
+.edge.on{stroke:var(--accent);opacity:1;stroke-dasharray:5 4;animation:flow 1s linear infinite}
+@keyframes flow{to{stroke-dashoffset:-18}}
+.col-label{fill:var(--ink-3);font:600 10px 'JetBrains Mono';letter-spacing:.1em;text-transform:uppercase}
+/* unified table */
+.utbl{width:100%;border-collapse:collapse;font-size:12px}
+.utbl th{text-align:left;font:600 10px/1 'JetBrains Mono';letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);padding:0 10px 10px;border-bottom:1px solid var(--line)}
+.utbl td{padding:10px;border-bottom:1px solid var(--line);color:var(--ink-2);font-family:'JetBrains Mono';font-size:11px;vertical-align:top}
+.utbl tr:last-child td{border-bottom:none}
+.utbl .src{font-weight:600}
+.utbl .src.notion{color:var(--notion)}.utbl .src.jira{color:var(--jira)}.utbl .src.slack{color:var(--slack)}
+.utbl .ref{color:var(--accent)}
+.utbl tr.appear{animation:fade .4s ease}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1}}
+.muted{color:var(--ink-3);text-align:center;padding:26px;font-size:13px}
+/* trajectory */
+.traj{display:flex;flex-direction:column;gap:0}
+.step{display:flex;gap:14px;padding:14px 0;position:relative}
+.step:not(:last-child)::before{content:'';position:absolute;left:13px;top:40px;bottom:-14px;width:2px;background:var(--line)}
+.step .pin{width:28px;height:28px;border-radius:50%;border:2px solid var(--line-2);background:var(--bg-2);display:grid;place-items:center;font:700 11px 'JetBrains Mono';color:var(--ink-3);flex:none;z-index:1;transition:.3s}
+.step.on .pin{border-color:var(--accent);color:var(--accent);box-shadow:0 0 0 4px rgba(139,149,255,.12)}
+.step .body{flex:1;padding-top:2px}
+.step .act{font-size:13px;color:var(--ink);font-weight:500}
+.step .act b{font-weight:700}
+.step .ts{font:500 10.5px/1 'JetBrains Mono';color:var(--ink-3);margin-top:5px}
+.step .refchip{display:inline-block;font:500 10px/1 'JetBrains Mono';color:var(--accent);background:rgba(139,149,255,.1);border:1px solid rgba(139,149,255,.25);border-radius:6px;padding:3px 6px;margin-top:7px;margin-right:5px}
+.note{font-size:11.5px;color:var(--ink-3);line-height:1.6;margin-top:14px}
+.foot{padding:30px 0 50px;border-top:1px solid var(--line);color:var(--ink-3);font-size:12px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.toast{position:fixed;right:22px;bottom:22px;background:var(--bg-2);border:1px solid var(--line-2);border-radius:12px;padding:13px 16px;transform:translateY(120px);opacity:0;transition:.4s cubic-bezier(.4,0,.2,1);z-index:100;max-width:340px}
+.toast.show{transform:none;opacity:1}
+.toast b{display:block;font-size:13px;margin-bottom:2px}.toast small{color:var(--ink-3);font-size:11.5px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <div class="brand">
+    <span style="display:flex"><svg width="26" height="26" viewBox="0 0 40 40" fill="none"><rect x="5.5" y="5.5" width="19" height="19" rx="6.5" transform="rotate(45 15 15)" stroke="currentColor" stroke-width="2.4"/><rect x="15.5" y="15.5" width="19" height="19" rx="6.5" transform="rotate(45 25 25)" stroke="currentColor" stroke-width="2.4"/></svg></span>
+    <span><b>TraceGraph</b><small>Ooak Data · Ingestion</small></span>
+  </div>
+  <div class="tags"><span class="tag dot">Schema normalization</span><span class="tag">Reference graph</span><span class="tag">Trajectory reconstruction</span></div>
+</div></header>
+
+<main class="wrap">
+  <section class="hero">
+    <div class="eyebrow">Real companies · stage 01</div>
+    <h1>Three schemas in. <em>One trajectory out.</em></h1>
+    <p>Agent training data isn't documents — it's trajectories: the ordered chain of who did what, across which tools, referencing what. TraceGraph ingests raw exports from Slack, Jira and Notion (each with its own schema), normalizes them into one event model, links the cross-references, and reconstructs the multi-step workflow an agent would actually learn from.</p>
+  </section>
+
+  <div class="bar">
+    <button class="btn primary" id="run">Run pipeline</button>
+    <button class="btn" id="replay" disabled>Replay trajectory</button>
+    <button class="btn" id="reset" disabled>Reset</button>
+    <span class="spacer"></span>
+    <div class="meta">
+      <span><small>Sources</small><b id="mS">3</b></span>
+      <span><small>Events</small><b id="mE">—</b></span>
+      <span><small>Nodes</small><b id="mN">—</b></span>
+      <span><small>Edges</small><b id="mD">—</b></span>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div>
+      <div class="card">
+        <div class="card-h"><h3>Raw exports</h3><span class="where">3 schemas, 3 shapes</span></div>
+        <div class="card-b" id="rawHost"></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h3>Unified event schema</h3><span class="where" id="uState">awaiting normalize</span></div>
+        <div class="card-b"><div id="utblHost"><div class="muted">Run the pipeline to normalize every export into one model.</div></div></div>
+      </div>
+    </div>
+    <div>
+      <div class="card">
+        <div class="card-h"><h3>Reference graph</h3><span class="where">cross-tool links</span></div>
+        <div class="card-b"><svg class="stage" id="stage" viewBox="0 0 680 380" role="img" aria-label="reference graph"></svg></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h3>Reconstructed trajectory</h3><span class="where" id="tState">—</span></div>
+        <div class="card-b">
+          <div class="traj" id="trajHost"><div class="muted">The ordered workflow appears here after reconstruction.</div></div>
+          <p class="note">Each step is one normalized event in temporal order, carrying the references that link it to the artifacts before it — the structure an RL environment replays.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <span>TraceGraph · demo for Ooak Data — Data Engineer, Infrastructure</span>
+    <span>Built by Sameer M · heterogeneous exports → one trajectory</span>
+  </div>
+</main>
+
+<div class="toast" id="toast"><b id="tt"></b><small id="tm"></small></div>
+
+<script>
+/* ---------- raw exports: three different schemas ---------- */
+const RAW={
+ notion:[{object:'page',id:'doc_atlas',last_edited:'2026-03-10T16:20Z',title:'Atlas Launch Spec',author:'jane',block_count:12}],
+ jira:[{key:'ATLAS-482',created:'2026-03-12T09:02Z',reporter:'diego',fields:{summary:'Harden auth flow',status:'In Review'},links:[{type:'documents',to:'doc_atlas'}]}],
+ slack:[
+   {ts:'2026-03-12T09:14Z',user:'jane', text:'board approved Atlas — we are go',channel:'atlas-launch',refs:[]},
+   {ts:'2026-03-12T09:16Z',user:'diego',text:'pushed remaining auth under ATLAS-482',channel:'atlas-launch',refs:['ATLAS-482']},
+   {ts:'2026-03-12T09:21Z',user:'priya',text:'full context is in the spec',channel:'atlas-launch',refs:['doc_atlas']},
+ ]
+};
+const STATUS_EVT={src:'jira',ts:'2026-03-12T09:30Z',actor:'system',type:'ticket.status',title:'ATLAS-482 → In Review',id:'evt_status',refs:['ATLAS-482']};
+
+/* ---------- normalize: differing shapes -> one event model ---------- */
+function normalize(){
+  const ev=[];
+  RAW.notion.forEach(d=>ev.push({id:d.id,src:'notion',type:'document.edited',actor:d.author,ts:d.last_edited,title:d.title,refs:[]}));
+  RAW.jira.forEach(t=>ev.push({id:t.key,src:'jira',type:'ticket.opened',actor:t.reporter,ts:t.created,title:t.fields.summary,refs:t.links.map(l=>l.to)}));
+  RAW.slack.forEach((m,i)=>ev.push({id:'msg_'+(i+1),src:'slack',type:'message.sent',actor:m.user,ts:m.ts,title:m.text,refs:m.refs}));
+  ev.push({...STATUS_EVT});
+  ev.sort((a,b)=>+new Date(a.ts)-+new Date(b.ts));
+  return ev;
+}
+
+/* ---------- graph layout (deterministic) ---------- */
+const POS={
+  doc_atlas:{x:30,y:150,c:'notion'},
+  'ATLAS-482':{x:255,y:70,c:'jira'},
+  evt_status:{x:255,y:250,c:'jira'},
+  msg_1:{x:480,y:30,c:'slack'},
+  msg_2:{x:480,y:140,c:'slack'},
+  msg_3:{x:480,y:250,c:'slack'},
+};
+const NW=170,NH=52;
+let events=[],edges=[];
+
+function buildGraph(){
+  edges=[];
+  events.forEach(e=>e.refs.forEach(r=>{if(POS[e.id]&&POS[r])edges.push({from:e.id,to:r});}));
+}
+function center(id){const p=POS[id];return{x:p.x+NW/2,y:p.y+NH/2};}
+
+function renderGraph(){
+  const svg=document.getElementById('stage');
+  svg.innerHTML='';
+  // column labels
+  const cols=[['Notion',95],['Jira',335],['Slack',560]];
+  cols.forEach(([t,x])=>svg.insertAdjacentHTML('beforeend',`<text class="col-label" x="${x}" y="20" text-anchor="middle">${t}</text>`));
+  // edges first
+  edges.forEach((ed,i)=>{
+    const a=center(ed.from),b=center(ed.to);
+    const mx=(a.x+b.x)/2;
+    const d=`M ${a.x-NW/2} ${a.y} C ${mx} ${a.y}, ${mx} ${b.y}, ${b.x+NW/2} ${b.y}`;
+    svg.insertAdjacentHTML('beforeend',`<path class="edge" id="edge${i}" d="${d}"></path>`);
+  });
+  // nodes
+  events.forEach(e=>{
+    const p=POS[e.id];if(!p)return;
+    const label=e.id.startsWith('msg')?'@'+e.actor:e.id;
+    const sub=e.type+' · '+e.actor;
+    const g=`<g class="gnode ${p.c} dim" id="node_${e.id}" data-id="${e.id}">
+      <rect x="${p.x}" y="${p.y}" width="${NW}" height="${NH}" rx="11"></rect>
+      <text class="title" x="${p.x+14}" y="${p.y+22}">${esc(trunc(e.id.startsWith('msg')?e.title:e.title,22))}</text>
+      <text class="sub" x="${p.x+14}" y="${p.y+39}">${esc(trunc(sub,26))}</text>
+    </g>`;
+    svg.insertAdjacentHTML('beforeend',g);
+  });
+}
+function trunc(s,n){return s.length>n?s.slice(0,n-1)+'…':s}
+function esc(s){return s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
+
+/* ---------- unified table ---------- */
+function renderTable(){
+  const host=document.getElementById('utblHost');
+  let rows=events.map(e=>`<tr class="appear"><td class="src ${e.src}">${e.src}</td><td>${e.type}</td><td>${e.actor}</td><td>${fmt(e.ts)}</td><td class="ref">${e.refs.length?e.refs.map(esc).join(', '):'—'}</td></tr>`).join('');
+  host.innerHTML=`<table class="utbl"><thead><tr><th>source</th><th>type</th><th>actor</th><th>time</th><th>refs</th></tr></thead><tbody>${rows}</tbody></table>`;
+  document.getElementById('uState').textContent=events.length+' events · 1 model';
+}
+function fmt(ts){return ts.replace('T',' ').replace('Z','')}
+
+/* ---------- trajectory ---------- */
+function renderTrajectory(){
+  const host=document.getElementById('trajHost');host.innerHTML='';
+  const verb={'document.edited':'edited the doc','ticket.opened':'opened a ticket','message.sent':'posted in #atlas-launch','ticket.status':'moved the ticket'};
+  events.forEach((e,i)=>{
+    const refchips=e.refs.map(r=>`<span class="refchip">→ ${esc(r)}</span>`).join('');
+    const what=e.type==='message.sent'?`"${esc(trunc(e.title,42))}"`:`<b>${esc(e.title)}</b>`;
+    host.insertAdjacentHTML('beforeend',
+     `<div class="step" id="step_${i}"><div class="pin">${i+1}</div><div class="body"><div class="act"><b>${e.actor}</b> ${verb[e.type]||e.type} — ${what}</div><div class="ts">${fmt(e.ts)} · ${e.src}</div>${refchips}</div></div>`);
+  });
+  document.getElementById('tState').textContent=events.length+' steps';
+}
+
+/* ---------- pipeline run ---------- */
+let playTimer=null;
+function run(){
+  clearTimeout(playTimer);
+  events=normalize();buildGraph();
+  document.getElementById('mE').textContent=events.length;
+  document.getElementById('mN').textContent=Object.keys(POS).length;
+  document.getElementById('mD').textContent=edges.length;
+  renderTable();renderGraph();renderTrajectory();
+  document.getElementById('replay').disabled=false;
+  document.getElementById('reset').disabled=false;
+  toast('Pipeline complete',`${events.length} events normalized · ${edges.length} references linked`);
+  setTimeout(play,400);
+}
+function play(){
+  clearTimeout(playTimer);
+  // reset visual state
+  document.querySelectorAll('.gnode').forEach(n=>{n.classList.remove('on');n.classList.add('dim');});
+  document.querySelectorAll('.edge').forEach(e=>e.classList.remove('on'));
+  document.querySelectorAll('.step').forEach(s=>s.classList.remove('on'));
+  let i=0;
+  const tick=()=>{
+    if(i>0){const ps=document.getElementById('step_'+(i-1));}
+    if(i>=events.length){return;}
+    const e=events[i];
+    const node=document.getElementById('node_'+e.id);
+    if(node){node.classList.remove('dim');node.classList.add('on');}
+    const step=document.getElementById('step_'+i);if(step)step.classList.add('on');
+    // light edges originating from this node
+    edges.forEach((ed,k)=>{if(ed.from===e.id){const p=document.getElementById('edge'+k);if(p)p.classList.add('on');}});
+    i++;
+    playTimer=setTimeout(tick,900);
+  };
+  tick();
+}
+function reset(){
+  clearTimeout(playTimer);
+  events=[];edges=[];
+  document.getElementById('stage').innerHTML='';
+  document.getElementById('utblHost').innerHTML='<div class="muted">Run the pipeline to normalize every export into one model.</div>';
+  document.getElementById('trajHost').innerHTML='<div class="muted">The ordered workflow appears here after reconstruction.</div>';
+  document.getElementById('uState').textContent='awaiting normalize';
+  document.getElementById('tState').textContent='—';
+  ['mE','mN','mD'].forEach(id=>document.getElementById(id).textContent='—');
+  document.getElementById('replay').disabled=true;document.getElementById('reset').disabled=true;
+  toast('Reset','Pipeline cleared.');
+}
+
+/* ---------- render raw exports (syntax-tinted) ---------- */
+function renderRaw(){
+  const host=document.getElementById('rawHost');
+  const blocks=[
+    ['Notion','notion',RAW.notion],
+    ['Jira','jira',RAW.jira],
+    ['Slack','slack',RAW.slack],
+  ];
+  host.innerHTML=blocks.map(([name,cls,data])=>
+    `<div class="raw"><div class="lbl"><span class="dotc" style="background:var(--${cls})"></span>${name} export · <span style="color:var(--ink-3);font-family:'JetBrains Mono';font-weight:500">${Array.isArray(data)?data.length:1} record(s)</span></div><pre>${tint(data)}</pre></div>`
+  ).join('');
+}
+function tint(obj){
+  let j=JSON.stringify(obj,null,1);
+  j=esc(j)
+    .replace(/&quot;(\w+)&quot;:/g,'&quot;<span class="k">$1</span>&quot;:')
+    .replace(/: &quot;([^&]*)&quot;/g,': &quot;<span class="s">$1</span>&quot;')
+    .replace(/: (\d+)/g,': <span class="n">$1</span>');
+  return j;
+}
+
+renderRaw();
+document.getElementById('run').onclick=run;
+document.getElementById('replay').onclick=play;
+document.getElementById('reset').onclick=reset;
+function toast(t,m){const el=document.getElementById('toast');document.getElementById('tt').textContent=t;document.getElementById('tm').textContent=m;el.classList.add('show');clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('show'),2800);}
+</script>
+</body>
+</html>
