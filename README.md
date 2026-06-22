@@ -133,4 +133,3 @@ tracegraph/
 ```
 
 ---
-*Sameer M — demo package for Ooak Data.*
